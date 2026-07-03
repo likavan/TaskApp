@@ -275,7 +275,6 @@ section {
   text-align: left;
   font-size: 0.94rem;
   box-shadow: var(--shadow-sm);
-  transition: transform 0.1s, box-shadow 0.15s, border-color 0.15s;
 }
 .project-btn .prow {
   display: flex;
@@ -284,11 +283,6 @@ section {
   width: 100%;
   min-width: 0;
   padding-right: 12px;
-}
-.project-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-  border-color: color-mix(in srgb, var(--muted) 30%, var(--border));
 }
 .project-btn .dot {
   width: 10px;
@@ -386,9 +380,6 @@ section {
 }
 .history-row + .history-row {
   border-top: 1px solid var(--border);
-}
-.history-row:hover {
-  background: color-mix(in srgb, var(--chip) 55%, transparent);
 }
 .history-row .swatch {
   width: 9px;
