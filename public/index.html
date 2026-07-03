@@ -39,7 +39,9 @@
               <span id="status-since" class="status-since"></span>
             </div>
           </div>
-          <button id="stop-btn" class="btn-stop" title="Stop (S)">■ Stop</button>
+          <button id="stop-btn" class="btn-stop" title="Stop (S)" aria-label="Stop">
+            <svg width="13" height="13" viewBox="0 0 14 14" aria-hidden="true"><rect x="1" y="1" width="12" height="12" rx="2.5" fill="currentColor"/></svg>
+          </button>
         </div>
         <form id="note-form" class="note-form">
           <input
@@ -48,7 +50,9 @@
             type="text"
             placeholder="Poznámka — na čom pracujem…"
           />
-          <button type="submit" id="note-save" class="btn-save" disabled>Uložiť</button>
+          <button type="submit" id="note-save" class="btn-save" disabled title="Uložiť poznámku" aria-label="Uložiť poznámku">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8.5l3.5 3.5L13 5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
         </form>
       </section>
 
