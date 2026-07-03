@@ -336,15 +336,15 @@ input::placeholder {
 /* ---------- Prepínač rozsahu: segmentový toggle ---------- */
 .range-toggle {
   display: inline-flex;
-  gap: 2px;
   background: var(--field);
   border-radius: 999px;
   padding: 3px;
+  cursor: pointer;
 }
 .range-toggle button {
   border: 1px solid transparent;
   background: transparent;
-  padding: 4px 14px;
+  padding: 8px 16px;
   border-radius: 999px;
   color: var(--muted);
   font-size: 0.8rem;

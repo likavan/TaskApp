@@ -379,13 +379,15 @@ async function init() {
   });
 
   $('history-range').addEventListener('click', (e) => {
-    if (e.target.dataset.range) {
-      historyRange = e.target.dataset.range;
-      [...$('history-range').children].forEach((b) =>
-        b.classList.toggle('active', b === e.target)
-      );
-      loadHistory();
-    }
+    // closest() namiesto e.target — na iOS Safari môže ťuknutie trafiť
+    // okraj/medzeru prepínača a target potom nie je samotné tlačidlo.
+    const btn = e.target.closest('button[data-range]');
+    if (!btn) return;
+    historyRange = btn.dataset.range;
+    [...$('history-range').children].forEach((b) =>
+      b.classList.toggle('active', b === btn)
+    );
+    loadHistory();
   });
 
   document.addEventListener('keydown', onKey);
