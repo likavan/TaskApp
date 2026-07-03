@@ -54,11 +54,21 @@ button {
   display: none !important;
 }
 
-/* Žiadne focus zvýraznenie. */
+/* Žiadne focus zvýraznenie — vrátane štýlov prehliadača. */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
 :focus,
 :focus-visible {
-  outline: none;
-  box-shadow: none;
+  outline: none !important;
+  box-shadow: none !important;
+}
+input:focus,
+button:focus,
+input:focus-visible,
+button:focus-visible {
+  outline: none !important;
+  border-color: var(--border);
 }
 
 #app {
@@ -126,36 +136,16 @@ section {
 
 /* ---------- Stavový panel ---------- */
 #status {
-  transition: box-shadow 0.25s, border-color 0.25s;
+  transition: border-color 0.25s;
 }
 #status.status-running {
-  border-color: color-mix(in srgb, var(--running) 35%, var(--border));
-  box-shadow: 0 0 0 4px var(--running-soft), var(--shadow-sm);
+  border-color: color-mix(in srgb, var(--running) 30%, var(--border));
 }
 
 .status-main {
   display: flex;
   align-items: center;
   gap: 14px;
-}
-
-.status-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--muted);
-  opacity: 0.4;
-  flex-shrink: 0;
-}
-.status-running .status-dot {
-  background: var(--running);
-  opacity: 1;
-  animation: pulse 2s infinite;
-}
-@keyframes pulse {
-  0% { box-shadow: 0 0 0 0 var(--running-soft); }
-  70% { box-shadow: 0 0 0 9px transparent; }
-  100% { box-shadow: 0 0 0 0 transparent; }
 }
 
 .status-text {
@@ -174,6 +164,7 @@ section {
   display: flex;
   align-items: baseline;
   gap: 10px;
+  min-height: 2.1rem;
 }
 .status-timer {
   font-family: ui-monospace, "SF Mono", monospace;
@@ -187,14 +178,6 @@ section {
   font-size: 0.86rem;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-}
-.status-note {
-  color: var(--muted);
-  font-size: 0.86rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
 }
 
 .btn-stop {
@@ -332,8 +315,8 @@ section {
   border-color: color-mix(in srgb, var(--muted) 30%, var(--border));
 }
 .project-btn.active {
-  border-color: color-mix(in srgb, var(--running) 45%, var(--border));
-  box-shadow: 0 0 0 3px var(--running-soft), var(--shadow-sm);
+  border-color: color-mix(in srgb, var(--running) 40%, var(--border));
+  background: color-mix(in srgb, var(--running-soft) 40%, var(--card));
 }
 .project-btn .dot {
   width: 10px;

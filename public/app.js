@@ -33,15 +33,6 @@ const $ = (id) => document.getElementById(id);
 const now = () => Date.now() + serverSkew;
 
 /* ---------- Formátovanie ---------- */
-function fmtDuration(ms) {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(
-    sec
-  ).padStart(2, '0')}`;
-}
 function fmtShort(ms) {
   const min = Math.round(ms / 60000);
   if (min < 60) return `${min}m`;
@@ -76,7 +67,6 @@ function renderStatus() {
     projEl.textContent = running.project_name;
     projEl.style.color = running.project_color;
     $('status-since').textContent = `od ${fmtClock(running.started_at)}`;
-    $('status-note').textContent = running.note ? `· ${running.note}` : '';
     stopBtn.disabled = false;
     $('note-save').disabled = false;
     noteInput.placeholder = 'Pridať / zmeniť poznámku…';
@@ -85,7 +75,6 @@ function renderStatus() {
     projEl.textContent = 'Nič nebeží';
     projEl.style.color = '';
     $('status-since').textContent = '';
-    $('status-note').textContent = '';
     stopBtn.disabled = true;
     $('note-save').disabled = true;
     noteInput.placeholder = 'Poznámka — napíš a klikni na projekt…';
@@ -93,8 +82,8 @@ function renderStatus() {
 }
 
 function tick() {
-  const timerEl = $('status-timer');
-  timerEl.textContent = running ? fmtDuration(now() - running.started_at) : '00:00:00';
+  // Len minúty (pod hodinu „42m", nad hodinu „1h 7m").
+  $('status-timer').textContent = running ? fmtShort(now() - running.started_at) : '';
 }
 
 /* ---------- Projekty ---------- */
