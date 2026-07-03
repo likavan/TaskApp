@@ -47,6 +47,23 @@ function fmtClock(ts) {
   });
 }
 
+// Hranice rozsahu v časovom pásme prehliadača — server môže bežať v UTC.
+function rangeBounds(range) {
+  const d = new Date();
+  const to = Date.now();
+  if (range === 'week') {
+    const day = (d.getDay() + 6) % 7; // pondelok = 0
+    const start = new Date(d.getFullYear(), d.getMonth(), d.getDate() - day);
+    return { from: start.getTime(), to };
+  }
+  const start = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  return { from: start.getTime(), to };
+}
+const rangeQuery = (range) => {
+  const { from, to } = rangeBounds(range);
+  return `from=${from}&to=${to}`;
+};
+
 function toast(msg) {
   const t = $('toast');
   t.textContent = msg;
@@ -174,7 +191,7 @@ async function saveNote() {
 
 /* ---------- História ---------- */
 async function loadHistory() {
-  const data = await api.get(`/api/entries?range=${historyRange}`);
+  const data = await api.get(`/api/entries?${rangeQuery(historyRange)}`);
   const el = $('history');
   el.innerHTML = '';
   if (data.length === 0) {
@@ -248,7 +265,7 @@ function editEntryNote(row, entry) {
 
 /* ---------- Obnovenie ---------- */
 async function loadTodayTotals() {
-  const data = await api.get('/api/summary?range=today');
+  const data = await api.get(`/api/summary?${rangeQuery('today')}`);
   todayTotals = {};
   for (const d of data) todayTotals[d.project_id] = d.ms;
 }

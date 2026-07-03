@@ -65,11 +65,19 @@ app.use('/api', (req, res, next) => {
   res.status(401).json({ error: 'Vyžaduje sa prihlásenie' });
 });
 
-/* ---------- Pomocník: časové rozsahy ---------- */
-function rangeBounds(range) {
+/* ---------- Pomocník: časové rozsahy ----------
+   Klient posiela from/to v ms podľa svojho časového pásma (server môže
+   bežať v UTC — jeho „dnes" by nesedelo s dňom používateľa). Fallback
+   na serverový výpočet ostáva pre priame volania API. */
+function rangeBounds(req) {
+  const qFrom = Number(req.query.from);
+  const qTo = Number(req.query.to);
+  if (Number.isFinite(qFrom) && Number.isFinite(qTo) && qFrom < qTo) {
+    return { from: qFrom, to: qTo };
+  }
   const d = new Date();
   const to = Date.now();
-  if (range === 'week') {
+  if (req.query.range === 'week') {
     const day = (d.getDay() + 6) % 7; // pondelok = 0
     const start = new Date(d.getFullYear(), d.getMonth(), d.getDate() - day);
     return { from: start.getTime(), to };
@@ -161,7 +169,7 @@ app.delete(
 app.get(
   '/api/entries',
   ah(async (req, res) => {
-    const { from, to } = rangeBounds(req.query.range);
+    const { from, to } = rangeBounds(req);
     res.json(await db.listEntries({ from, to }));
   })
 );
@@ -169,7 +177,7 @@ app.get(
 app.get(
   '/api/summary',
   ah(async (req, res) => {
-    const { from, to } = rangeBounds(req.query.range);
+    const { from, to } = rangeBounds(req);
     res.json(await db.summary({ from, to }));
   })
 );
