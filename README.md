@@ -19,7 +19,8 @@ prehľad odpracovaného času aj históriu.
 ## Technológie
 
 - **Backend:** Node.js + Express
-- **Databáza:** SQLite (`better-sqlite3`) — jeden súbor v `data/`, žiadna konfigurácia
+- **Databáza:** SQLite cez `@libsql/client` — lokálne jeden súbor v `data/`,
+  v produkcii [Turso](https://turso.tech) (hostovaný SQLite)
 - **Frontend:** čisté HTML/CSS/JS (žiadny framework, žiadny build)
 
 ## Spustenie
@@ -41,10 +42,12 @@ npm run dev
 
 ## Konfigurácia
 
-| Premenná       | Popis                                                                 |
-| -------------- | --------------------------------------------------------------------- |
-| `PORT`         | Port servera (predvolene `3000`).                                     |
-| `APP_PASSWORD` | Ak je nastavená, zapne sa jednoduchá ochrana heslom (prihlásenie).    |
+| Premenná             | Popis                                                                    |
+| -------------------- | ------------------------------------------------------------------------ |
+| `PORT`               | Port servera (predvolene `3000`).                                        |
+| `APP_PASSWORD`       | Ak je nastavená, zapne sa jednoduchá ochrana heslom (prihlásenie).       |
+| `TURSO_DATABASE_URL` | URL Turso databázy (`libsql://…`). Ak nie je nastavená, použije sa lokálny súbor `data/taskapp.db`. |
+| `TURSO_AUTH_TOKEN`   | Auth token k Turso databáze.                                             |
 
 Príklad s ochranou heslom:
 
@@ -53,6 +56,38 @@ APP_PASSWORD=tajneheslo PORT=8080 npm start
 ```
 
 Databáza sa vytvorí automaticky v priečinku `data/` (je v `.gitignore`).
+
+## Nasadenie na Vercel
+
+Vercel je serverless — lokálny súbor SQLite by sa strácal, preto sa v produkcii
+používa [Turso](https://turso.tech) (hostovaný SQLite, má free tier). Kód je rovnaký,
+prepína sa len env premennou.
+
+1. **Vytvor Turso databázu** ([turso.tech](https://turso.tech) → účet zdarma):
+
+   ```bash
+   # nainštaluj Turso CLI: https://docs.turso.tech/cli/installation
+   turso db create taskapp
+   turso db show taskapp --url          # → TURSO_DATABASE_URL
+   turso db tokens create taskapp       # → TURSO_AUTH_TOKEN
+   ```
+
+2. **Naimportuj projekt do Vercelu** ([vercel.com/new](https://vercel.com/new) → vyber tento
+   GitHub repozitár; framework preset nechaj **Other**, žiadny build command netreba).
+
+3. **Nastav environment premenné** v projekte na Verceli
+   (Settings → Environment Variables):
+
+   - `TURSO_DATABASE_URL` = `libsql://…` (z kroku 1)
+   - `TURSO_AUTH_TOKEN` = token (z kroku 1)
+   - `APP_PASSWORD` = tvoje heslo — **odporúčané**, appka bude verejne dostupná na internete
+
+4. **Deploy** — Vercel nasadí `api/index.js` ako serverless funkciu (celé Express API)
+   a `public/` servíruje ako statické súbory. Ďalšie pushe na hlavnú vetvu sa nasadzujú
+   automaticky.
+
+Alternatíva bez Turso: hosting s trvalým diskom (Fly.io, Railway, Render) — tam appka
+beží ako obyčajný Node proces a stačí lokálny SQLite súbor, bez ďalšej konfigurácie.
 
 ## Ako to funguje
 

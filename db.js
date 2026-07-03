@@ -1,157 +1,197 @@
-import Database from 'better-sqlite3';
+import { createClient } from '@libsql/client';
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const dataDir = join(__dirname, 'data');
-if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
 
-const db = new Database(join(dataDir, 'taskapp.db'));
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+// Lokálne: SQLite súbor v data/. Na Verceli/produkcii: Turso cez TURSO_DATABASE_URL.
+const url = process.env.TURSO_DATABASE_URL || 'file:' + join(__dirname, 'data', 'taskapp.db');
+if (url.startsWith('file:')) {
+  const dataDir = join(__dirname, 'data');
+  if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
+}
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS projects (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    name       TEXT NOT NULL,
-    color      TEXT NOT NULL DEFAULT '#4f8cff',
-    archived   INTEGER NOT NULL DEFAULT 0,
-    created_at INTEGER NOT NULL
+const db = createClient({
+  url,
+  authToken: process.env.TURSO_AUTH_TOKEN,
+});
+
+let initPromise = null;
+function init() {
+  initPromise ??= db.batch(
+    [
+      `CREATE TABLE IF NOT EXISTS projects (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        name       TEXT NOT NULL,
+        color      TEXT NOT NULL DEFAULT '#4f8cff',
+        archived   INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL
+      )`,
+      `CREATE TABLE IF NOT EXISTS entries (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        note       TEXT NOT NULL DEFAULT '',
+        started_at INTEGER NOT NULL,
+        ended_at   INTEGER,
+        created_at INTEGER NOT NULL
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_entries_started ON entries(started_at)`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_entries_running
+        ON entries(ended_at) WHERE ended_at IS NULL`,
+    ],
+    'write'
   );
-
-  CREATE TABLE IF NOT EXISTS entries (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    note       TEXT NOT NULL DEFAULT '',
-    started_at INTEGER NOT NULL,
-    ended_at   INTEGER,
-    created_at INTEGER NOT NULL
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_entries_started ON entries(started_at);
-  CREATE UNIQUE INDEX IF NOT EXISTS idx_entries_running
-    ON entries(ended_at) WHERE ended_at IS NULL;
-`);
+  return initPromise;
+}
 
 const now = () => Date.now();
+const rowId = (res) => Number(res.lastInsertRowid);
+
+async function all(sql, args = {}) {
+  await init();
+  const res = await db.execute({ sql, args });
+  return res.rows;
+}
+
+async function get(sql, args = {}) {
+  return (await all(sql, args))[0];
+}
+
+async function run(sql, args = {}) {
+  await init();
+  return db.execute({ sql, args });
+}
 
 /* ---------- Projects ---------- */
 
 export function listProjects({ includeArchived = false } = {}) {
   // Zoradené podľa naposledy použitého (posledný started_at), potom podľa mena.
-  const sql = `
+  return all(`
     SELECT p.*, MAX(e.started_at) AS last_used
     FROM projects p
     LEFT JOIN entries e ON e.project_id = p.id
     ${includeArchived ? '' : 'WHERE p.archived = 0'}
     GROUP BY p.id
     ORDER BY (last_used IS NULL), last_used DESC, p.name COLLATE NOCASE ASC
-  `;
-  return db.prepare(sql).all();
+  `);
 }
 
 export function getProject(id) {
-  return db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
+  return get('SELECT * FROM projects WHERE id = @id', { id });
 }
 
-export function createProject({ name, color }) {
-  const info = db
-    .prepare('INSERT INTO projects (name, color, created_at) VALUES (?, ?, ?)')
-    .run(name.trim(), color || '#4f8cff', now());
-  return getProject(info.lastInsertRowid);
+export async function createProject({ name, color }) {
+  const res = await run(
+    'INSERT INTO projects (name, color, created_at) VALUES (@name, @color, @ts)',
+    { name: name.trim(), color: color || '#4f8cff', ts: now() }
+  );
+  return getProject(rowId(res));
 }
 
-export function updateProject(id, fields) {
+export async function updateProject(id, fields) {
   const allowed = ['name', 'color', 'archived'];
   const keys = Object.keys(fields).filter((k) => allowed.includes(k));
   if (keys.length === 0) return getProject(id);
   const setClause = keys.map((k) => `${k} = @${k}`).join(', ');
-  db.prepare(`UPDATE projects SET ${setClause} WHERE id = @id`).run({ id, ...fields });
+  const args = { id };
+  for (const k of keys) args[k] = fields[k];
+  await run(`UPDATE projects SET ${setClause} WHERE id = @id`, args);
   return getProject(id);
 }
 
-export function deleteProject(id) {
-  db.prepare('DELETE FROM projects WHERE id = ?').run(id);
+export async function deleteProject(id) {
+  await init();
+  // Záznamy mažeme explicitne — FK pragma nemusí byť na remote spojení zapnutá.
+  await db.batch(
+    [
+      { sql: 'DELETE FROM entries WHERE project_id = @id', args: { id } },
+      { sql: 'DELETE FROM projects WHERE id = @id', args: { id } },
+    ],
+    'write'
+  );
 }
 
 /* ---------- Entries / state ---------- */
 
 export function getRunning() {
-  return db
-    .prepare(
-      `SELECT e.*, p.name AS project_name, p.color AS project_color
-       FROM entries e JOIN projects p ON p.id = e.project_id
-       WHERE e.ended_at IS NULL`
-    )
-    .get();
+  return get(
+    `SELECT e.*, p.name AS project_name, p.color AS project_color
+     FROM entries e JOIN projects p ON p.id = e.project_id
+     WHERE e.ended_at IS NULL`
+  );
 }
 
-function stopRunningTx(ts) {
-  db.prepare('UPDATE entries SET ended_at = ? WHERE ended_at IS NULL').run(ts);
+export function getEntry(id) {
+  return get('SELECT * FROM entries WHERE id = @id', { id });
 }
 
-// Zastaví bežiaci záznam a spustí nový pre daný projekt — atomicky.
-export const switchProject = db.transaction(({ projectId, note = '' }) => {
-  const project = getProject(projectId);
+// Zastaví bežiaci záznam a spustí nový pre daný projekt — atomicky (batch = transakcia).
+export async function switchProject({ projectId, note = '' }) {
+  const project = await getProject(projectId);
   if (!project) throw new Error('Projekt neexistuje');
   const ts = now();
-  stopRunningTx(ts);
-  const info = db
-    .prepare(
-      'INSERT INTO entries (project_id, note, started_at, created_at) VALUES (?, ?, ?, ?)'
-    )
-    .run(projectId, note, ts, ts);
-  return db.prepare('SELECT * FROM entries WHERE id = ?').get(info.lastInsertRowid);
-});
-
-export function stopRunning() {
-  const running = getRunning();
-  if (!running) return null;
-  stopRunningTx(now());
-  return db.prepare('SELECT * FROM entries WHERE id = ?').get(running.id);
+  await init();
+  const results = await db.batch(
+    [
+      { sql: 'UPDATE entries SET ended_at = @ts WHERE ended_at IS NULL', args: { ts } },
+      {
+        sql: `INSERT INTO entries (project_id, note, started_at, created_at)
+              VALUES (@projectId, @note, @ts, @ts)`,
+        args: { projectId, note, ts },
+      },
+    ],
+    'write'
+  );
+  return getEntry(rowId(results[1]));
 }
 
-export function updateEntry(id, fields) {
+export async function stopRunning() {
+  const running = await getRunning();
+  if (!running) return null;
+  await run('UPDATE entries SET ended_at = @ts WHERE ended_at IS NULL', { ts: now() });
+  return getEntry(running.id);
+}
+
+export async function updateEntry(id, fields) {
   const allowed = ['note', 'started_at', 'ended_at', 'project_id'];
   const keys = Object.keys(fields).filter((k) => allowed.includes(k));
-  if (keys.length === 0) return db.prepare('SELECT * FROM entries WHERE id = ?').get(id);
+  if (keys.length === 0) return getEntry(id);
   const setClause = keys.map((k) => `${k} = @${k}`).join(', ');
-  db.prepare(`UPDATE entries SET ${setClause} WHERE id = @id`).run({ id, ...fields });
-  return db.prepare('SELECT * FROM entries WHERE id = ?').get(id);
+  const args = { id };
+  for (const k of keys) args[k] = fields[k];
+  await run(`UPDATE entries SET ${setClause} WHERE id = @id`, args);
+  return getEntry(id);
 }
 
 export function deleteEntry(id) {
-  db.prepare('DELETE FROM entries WHERE id = ?').run(id);
+  return run('DELETE FROM entries WHERE id = @id', { id });
 }
 
 export function listEntries({ from, to, limit = 200 }) {
-  return db
-    .prepare(
-      `SELECT e.*, p.name AS project_name, p.color AS project_color
-       FROM entries e JOIN projects p ON p.id = e.project_id
-       WHERE e.started_at >= ? AND e.started_at < ?
-       ORDER BY e.started_at DESC
-       LIMIT ?`
-    )
-    .all(from, to, limit);
+  return all(
+    `SELECT e.*, p.name AS project_name, p.color AS project_color
+     FROM entries e JOIN projects p ON p.id = e.project_id
+     WHERE e.started_at >= @from AND e.started_at < @to
+     ORDER BY e.started_at DESC
+     LIMIT @limit`,
+    { from, to, limit }
+  );
 }
 
 // Súčet trvania na projekt v danom rozsahu (v milisekundách).
 // Bežiaci záznam sa počíta po aktuálny čas.
 export function summary({ from, to }) {
-  const ts = now();
-  return db
-    .prepare(
-      `SELECT p.id AS project_id, p.name AS project_name, p.color AS project_color,
-              SUM(MIN(COALESCE(e.ended_at, @ts), @to) - MAX(e.started_at, @from)) AS ms
-       FROM entries e JOIN projects p ON p.id = e.project_id
-       WHERE e.started_at < @to AND COALESCE(e.ended_at, @ts) > @from
-       GROUP BY p.id
-       HAVING ms > 0
-       ORDER BY ms DESC`
-    )
-    .all({ from, to, ts });
+  return all(
+    `SELECT p.id AS project_id, p.name AS project_name, p.color AS project_color,
+            SUM(MIN(COALESCE(e.ended_at, @ts), @to) - MAX(e.started_at, @from)) AS ms
+     FROM entries e JOIN projects p ON p.id = e.project_id
+     WHERE e.started_at < @to AND COALESCE(e.ended_at, @ts) > @from
+     GROUP BY p.id
+     HAVING ms > 0
+     ORDER BY ms DESC`,
+    { from, to, ts: now() }
+  );
 }
 
 export default db;
