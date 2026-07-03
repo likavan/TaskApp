@@ -70,6 +70,9 @@ button:focus-visible {
   outline: none !important;
   border-color: var(--border);
 }
+::-moz-focus-inner {
+  border: 0;
+}
 
 #app {
   max-width: 820px;
@@ -135,12 +138,6 @@ section {
 }
 
 /* ---------- Stavový panel ---------- */
-#status {
-  transition: border-color 0.25s;
-}
-#status.status-running {
-  border-color: color-mix(in srgb, var(--running) 30%, var(--border));
-}
 
 .status-main {
   display: flex;
@@ -321,10 +318,6 @@ section {
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
   border-color: color-mix(in srgb, var(--muted) 30%, var(--border));
-}
-.project-btn.active {
-  border-color: color-mix(in srgb, var(--running) 40%, var(--border));
-  background: color-mix(in srgb, var(--running-soft) 40%, var(--card));
 }
 .project-btn .dot {
   width: 10px;
