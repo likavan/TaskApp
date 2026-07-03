@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="sk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>TaskApp — prepínanie projektov</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⏱️</text></svg>"
+    />
+  </head>
+  <body>
+    <!-- Prihlásenie (zobrazí sa len ak je zapnuté heslo) -->
+    <div id="login" class="overlay hidden">
+      <form id="login-form" class="card login-card">
+        <h1>⏱️ TaskApp</h1>
+        <p>Zadaj heslo</p>
+        <input type="password" id="login-password" autocomplete="current-password" />
+        <button type="submit">Prihlásiť</button>
+        <div id="login-error" class="error"></div>
+      </form>
+    </div>
+
+    <div id="app" class="hidden">
+      <header>
+        <h1>⏱️ TaskApp</h1>
+        <span class="hint">Klikni na projekt = prepni. Skratky: <kbd>1–9</kbd> prepnú, <kbd>S</kbd> stop.</span>
+      </header>
+
+      <!-- Aktuálny stav -->
+      <section id="status" class="card status-idle">
+        <div class="status-main">
+          <div class="status-dot"></div>
+          <div class="status-text">
+            <div id="status-project" class="status-project">Nič nebeží</div>
+            <div id="status-timer" class="status-timer">00:00:00</div>
+          </div>
+          <button id="stop-btn" class="btn-stop" title="Stop (S)">■ Stop</button>
+        </div>
+        <input
+          id="note-input"
+          class="note-input"
+          type="text"
+          placeholder="Poznámka — na čom pracujem…"
+        />
+      </section>
+
+      <!-- Projekty -->
+      <section>
+        <div class="section-head">
+          <h2>Projekty</h2>
+          <form id="new-project-form" class="new-project">
+            <input id="new-project-name" type="text" placeholder="Nový projekt…" />
+            <input id="new-project-color" type="color" value="#4f8cff" title="Farba" />
+            <button type="submit">＋</button>
+          </form>
+        </div>
+        <div id="projects" class="projects-grid"></div>
+      </section>
+
+      <!-- Prehľad -->
+      <section>
+        <div class="section-head">
+          <h2>Prehľad času</h2>
+          <div class="range-toggle" id="summary-range">
+            <button data-range="today" class="active">Dnes</button>
+            <button data-range="week">Tento týždeň</button>
+          </div>
+        </div>
+        <div id="summary" class="summary"></div>
+      </section>
+
+      <!-- História -->
+      <section>
+        <div class="section-head">
+          <h2>História</h2>
+          <div class="range-toggle" id="history-range">
+            <button data-range="today" class="active">Dnes</button>
+            <button data-range="week">Tento týždeň</button>
+          </div>
+        </div>
+        <div id="history" class="history"></div>
+      </section>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
