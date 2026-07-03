@@ -54,21 +54,11 @@ button {
   display: none !important;
 }
 
-/* Decentný fokus: výrazný prstenec len pri ovládaní klávesnicou,
-   textové polia dostanú pri kliknutí iba jemné zvýraznenie okraja. */
-:focus {
-  outline: none;
-}
+/* Žiadne focus zvýraznenie. */
+:focus,
 :focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-input[type="text"]:focus-visible,
-input[type="password"]:focus-visible,
-input[type="color"]:focus-visible {
   outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  box-shadow: none;
 }
 
 #app {
@@ -196,6 +186,15 @@ section {
   color: var(--muted);
   font-size: 0.86rem;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.status-note {
+  color: var(--muted);
+  font-size: 0.86rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .btn-stop {
@@ -218,19 +217,42 @@ section {
   cursor: default;
 }
 
-.note-input {
-  width: 100%;
+.note-form {
+  display: flex;
+  gap: 8px;
   margin-top: 14px;
+}
+.note-input {
+  flex: 1;
+  min-width: 0;
   padding: 10px 14px;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--bg);
   color: var(--text);
   font-size: 0.93rem;
-  transition: border-color 0.15s, box-shadow 0.15s;
 }
 .note-input::placeholder {
   color: var(--muted);
+}
+.btn-save {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: none;
+  border-radius: 999px;
+  padding: 9px 18px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, opacity 0.15s;
+}
+.btn-save:hover:not(:disabled) {
+  background: var(--accent);
+  color: #fff;
+}
+.btn-save:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 /* ---------- Projekty ---------- */
@@ -402,8 +424,8 @@ section {
 }
 .history-row {
   display: grid;
-  grid-template-columns: 10px 110px 1fr auto auto;
-  align-items: center;
+  grid-template-columns: 10px 1fr auto auto;
+  align-items: flex-start;
   gap: 12px;
   padding: 11px 16px;
 }
@@ -417,6 +439,27 @@ section {
   width: 9px;
   height: 9px;
   border-radius: 50%;
+  margin-top: 6px;
+}
+.history-row .hmain {
+  min-width: 0;
+}
+.history-row .hproj {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-size: 0.92rem;
+}
+.history-row .hnote {
+  color: var(--muted);
+  font-size: 0.85rem;
+  overflow-wrap: break-word;
+}
+.history-row .hright {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
 }
 .history-row .htime {
   font-family: ui-monospace, "SF Mono", monospace;
@@ -425,29 +468,22 @@ section {
   font-size: 0.82rem;
   white-space: nowrap;
 }
-.history-row .hnote {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.9rem;
-}
-.history-row .hnote .hproj {
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-.history-row .hnote .hmuted {
-  color: var(--muted);
-}
 .history-row .hdur {
   font-variant-numeric: tabular-nums;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 550;
   background: var(--chip);
   border-radius: 999px;
-  padding: 2px 9px;
+  padding: 1px 9px;
   white-space: nowrap;
 }
-.history-row .hdel {
+.history-row .hacts {
+  display: flex;
+  gap: 2px;
+  margin-top: 2px;
+}
+.history-row .hdel,
+.history-row .hedit {
   background: none;
   border: none;
   color: var(--muted);
@@ -457,11 +493,25 @@ section {
   border-radius: 6px;
   transition: opacity 0.15s, color 0.15s;
 }
-.history-row:hover .hdel {
+.history-row:hover .hdel,
+.history-row:hover .hedit {
   opacity: 1;
 }
 .history-row .hdel:hover {
   color: var(--stop);
+}
+.history-row .hedit:hover {
+  color: var(--accent);
+}
+.hnote-input {
+  width: 100%;
+  margin-top: 3px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.85rem;
 }
 .history-row .running-badge {
   color: var(--running);
@@ -581,7 +631,6 @@ section {
   }
   /* Časy od–do zostávajú viditeľné aj na mobile — len kompaktnejšie. */
   .history-row {
-    grid-template-columns: 9px auto 1fr auto auto;
     gap: 8px;
     padding: 10px 12px;
   }
@@ -589,9 +638,10 @@ section {
     font-size: 0.76rem;
   }
   .history-row .hnote {
-    font-size: 0.85rem;
+    font-size: 0.82rem;
   }
-  .history-row .hdel {
+  .history-row .hdel,
+  .history-row .hedit {
     opacity: 1;
   }
 }

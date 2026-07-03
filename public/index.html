@@ -38,16 +38,20 @@
             <div class="status-meta">
               <span id="status-timer" class="status-timer">00:00:00</span>
               <span id="status-since" class="status-since"></span>
+              <span id="status-note" class="status-note"></span>
             </div>
           </div>
           <button id="stop-btn" class="btn-stop" title="Stop (S)">■ Stop</button>
         </div>
-        <input
-          id="note-input"
-          class="note-input"
-          type="text"
-          placeholder="Poznámka — na čom pracujem…"
-        />
+        <form id="note-form" class="note-form">
+          <input
+            id="note-input"
+            class="note-input"
+            type="text"
+            placeholder="Poznámka — na čom pracujem…"
+          />
+          <button type="submit" id="note-save" class="btn-save" disabled>Uložiť</button>
+        </form>
       </section>
 
       <!-- Projekty -->

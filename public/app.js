@@ -28,7 +28,6 @@ let serverSkew = 0; // rozdiel medzi serverom a klientom (ms)
 let projects = [];
 let todayTotals = {}; // project_id -> ms (dnes)
 let historyRange = 'today';
-let noteSaveTimer = null;
 
 const $ = (id) => document.getElementById(id);
 const now = () => Date.now() + serverSkew;
@@ -77,15 +76,18 @@ function renderStatus() {
     projEl.textContent = running.project_name;
     projEl.style.color = running.project_color;
     $('status-since').textContent = `od ${fmtClock(running.started_at)}`;
+    $('status-note').textContent = running.note ? `· ${running.note}` : '';
     stopBtn.disabled = false;
-    if (document.activeElement !== noteInput) noteInput.value = running.note || '';
-    noteInput.placeholder = 'Poznámka k bežiacemu záznamu…';
+    $('note-save').disabled = false;
+    noteInput.placeholder = 'Pridať / zmeniť poznámku…';
   } else {
     statusEl.classList.remove('status-running');
     projEl.textContent = 'Nič nebeží';
     projEl.style.color = '';
     $('status-since').textContent = '';
+    $('status-note').textContent = '';
     stopBtn.disabled = true;
+    $('note-save').disabled = true;
     noteInput.placeholder = 'Poznámka — napíš a klikni na projekt…';
   }
 }
@@ -169,15 +171,16 @@ async function stopTracking() {
   await refreshAll();
 }
 
-/* ---------- Poznámka za behu ---------- */
-function onNoteInput() {
+/* ---------- Uloženie poznámky k bežiacemu záznamu ---------- */
+async function saveNote() {
   if (!running) return;
-  clearTimeout(noteSaveTimer);
-  noteSaveTimer = setTimeout(async () => {
-    const note = $('note-input').value;
-    running.note = note;
-    await api.patch(`/api/entries/${running.id}`, { note });
-  }, 500);
+  const note = $('note-input').value.trim();
+  running.note = note;
+  await api.patch(`/api/entries/${running.id}`, { note });
+  $('note-input').value = '';
+  renderStatus();
+  toast('Poznámka uložená');
+  await loadHistory();
 }
 
 /* ---------- História ---------- */
@@ -193,17 +196,21 @@ async function loadHistory() {
     const row = document.createElement('div');
     row.className = 'history-row';
     const dur = (e.ended_at || now()) - e.started_at;
-    const swatch = `<span class="swatch" style="background:${e.project_color}"></span>`;
-    const time = `<span class="htime">${fmtClock(e.started_at)}–${
-      e.ended_at ? fmtClock(e.ended_at) : '…'
-    }</span>`;
-    const note = `<span class="hnote"><span class="hproj">${escapeHtml(
-      e.project_name
-    )}</span>${e.note ? ' <span class="hmuted">· ' + escapeHtml(e.note) + '</span>' : ''}</span>`;
-    const durEl = e.ended_at
-      ? `<span class="hdur">${fmtShort(dur)}</span>`
-      : `<span class="running-badge">beží</span>`;
-    row.innerHTML = `${swatch}${time}${note}${durEl}<button class="hdel" title="Zmazať">✕</button>`;
+    row.innerHTML = `
+      <span class="swatch" style="background:${e.project_color}"></span>
+      <div class="hmain">
+        <div class="hproj">${escapeHtml(e.project_name)}</div>
+        ${e.note ? `<div class="hnote">${escapeHtml(e.note)}</div>` : ''}
+      </div>
+      <div class="hright">
+        <div class="htime">${fmtClock(e.started_at)}–${e.ended_at ? fmtClock(e.ended_at) : '…'}</div>
+        ${e.ended_at ? `<div class="hdur">${fmtShort(dur)}</div>` : `<div class="running-badge">beží</div>`}
+      </div>
+      <div class="hacts">
+        <button class="hedit" title="Upraviť poznámku">✎</button>
+        <button class="hdel" title="Zmazať">✕</button>
+      </div>`;
+    row.querySelector('.hedit').addEventListener('click', () => editEntryNote(row, e));
     row.querySelector('.hdel').addEventListener('click', async () => {
       await api.del(`/api/entries/${e.id}`);
       if (running && running.id === e.id) running = null;
@@ -211,6 +218,43 @@ async function loadHistory() {
     });
     el.appendChild(row);
   }
+}
+
+// Inline editácia poznámky priamo v riadku histórie — funguje aj pre ukončené záznamy.
+function editEntryNote(row, entry) {
+  if (row.querySelector('.hnote-input')) return;
+  const main = row.querySelector('.hmain');
+  main.querySelector('.hnote')?.remove();
+  const input = document.createElement('input');
+  input.className = 'hnote-input';
+  input.type = 'text';
+  input.value = entry.note || '';
+  input.placeholder = 'Poznámka…';
+  main.appendChild(input);
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+
+  let done = false;
+  const finish = async (save) => {
+    if (done) return;
+    done = true;
+    if (save) {
+      const note = input.value.trim();
+      try {
+        await api.patch(`/api/entries/${entry.id}`, { note });
+        if (running && running.id === entry.id) running.note = note;
+        toast('Poznámka uložená');
+      } catch (err) {
+        if (err.message !== 'unauth') toast('Chyba: ' + err.message);
+      }
+    }
+    await refreshAll();
+  };
+  input.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') finish(true);
+    else if (ev.key === 'Escape') finish(false);
+  });
+  input.addEventListener('blur', () => finish(true));
 }
 
 /* ---------- Obnovenie ---------- */
@@ -309,9 +353,11 @@ async function init() {
 
   // Ovládacie prvky
   $('stop-btn').addEventListener('click', stopTracking);
-  $('note-input').addEventListener('input', onNoteInput);
-  $('note-input').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') e.target.blur();
+  $('note-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    saveNote().catch((err) => {
+      if (err.message !== 'unauth') toast('Chyba: ' + err.message);
+    });
   });
 
   $('new-project-form').addEventListener('submit', async (e) => {
