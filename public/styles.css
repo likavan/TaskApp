@@ -6,6 +6,7 @@
 :root {
   --bg: #fafaf7;
   --field: #f0efe9;
+  --raise: #ffffff;
   --text: #1b1a17;
   --muted: #8a877e;
   --hair: #e6e4dc;
@@ -16,6 +17,7 @@
   :root {
     --bg: #141412;
     --field: #1f1e1a;
+    --raise: #24231f;
     --text: #eae8e1;
     --muted: #8f8c82;
     --hair: #2b2a25;
@@ -34,6 +36,7 @@ body {
   color: var(--text);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 button {
@@ -82,10 +85,11 @@ button:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
+:root {
+  --pad: 24px;
+}
 #app {
-  max-width: 620px;
-  margin: 0 auto;
-  padding: 8px 20px 72px;
+  padding: 0 var(--pad) 72px;
 }
 
 section {
@@ -110,11 +114,15 @@ section {
   margin: 0;
 }
 
-/* ---------- Časomiera ---------- */
+/* ---------- Časomiera: pás na celú šírku obrazovky ---------- */
 #status {
-  padding: 26px 0 22px;
+  margin: 0 calc(-1 * var(--pad)) 30px;
+  padding: 24px var(--pad) 22px;
+  background: var(--field);
   border-bottom: 1px solid var(--hair);
-  margin-bottom: 30px;
+}
+#status .note-input {
+  background: var(--bg);
 }
 
 .status-main {
@@ -325,36 +333,46 @@ input::placeholder {
   cursor: pointer;
 }
 
-/* ---------- Prepínač rozsahu: čistý text ---------- */
+/* ---------- Prepínač rozsahu: segmentový toggle ---------- */
 .range-toggle {
   display: inline-flex;
-  gap: 16px;
+  gap: 2px;
+  background: var(--field);
+  border-radius: 999px;
+  padding: 3px;
 }
 .range-toggle button {
-  border: none;
-  background: none;
-  padding: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 4px 14px;
+  border-radius: 999px;
   color: var(--muted);
   font-size: 0.8rem;
   cursor: pointer;
 }
 .range-toggle button.active {
+  background: var(--raise);
+  border-color: var(--hair);
   color: var(--text);
   font-weight: 600;
 }
 
-/* ---------- História: zoznam riadkov ---------- */
+/* ---------- História: ohraničené položky ---------- */
 .history {
   display: flex;
   flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
 }
 .history-row {
   display: grid;
   grid-template-columns: 10px 1fr auto auto;
   align-items: flex-start;
   gap: 12px;
-  padding: 13px 2px;
-  border-bottom: 1px solid var(--hair);
+  padding: 12px 14px;
+  background: var(--raise);
+  border: 1px solid var(--hair);
+  border-radius: 12px;
 }
 .history-row .swatch {
   width: 9px;
@@ -524,8 +542,11 @@ input::placeholder {
 
 /* ---------- Mobil ---------- */
 @media (max-width: 560px) {
+  :root {
+    --pad: 16px;
+  }
   #app {
-    padding: 4px 16px 64px;
+    padding-bottom: 64px;
   }
   .status-timer {
     font-size: 2.2rem;
