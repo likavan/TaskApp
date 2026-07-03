@@ -27,7 +27,6 @@ let running = null; // aktuálne bežiaci záznam
 let serverSkew = 0; // rozdiel medzi serverom a klientom (ms)
 let projects = [];
 let todayTotals = {}; // project_id -> ms (dnes)
-let summaryRange = 'today';
 let historyRange = 'today';
 let noteSaveTimer = null;
 
@@ -177,39 +176,6 @@ function onNoteInput() {
   }, 500);
 }
 
-/* ---------- Prehľad ---------- */
-async function loadSummary() {
-  const data = await api.get(`/api/summary?range=${summaryRange}`);
-  const el = $('summary');
-  el.innerHTML = '';
-  if (data.length === 0) {
-    el.innerHTML = '<div class="empty">Žiadny zaznamenaný čas.</div>';
-    return;
-  }
-  const max = Math.max(...data.map((d) => d.ms));
-  const totalAll = data.reduce((s, d) => s + d.ms, 0);
-  for (const d of data) {
-    const row = document.createElement('div');
-    row.className = 'summary-row';
-    const bar = document.createElement('div');
-    bar.className = 'summary-bar';
-    bar.style.width = `${Math.max(3, (d.ms / max) * 100)}%`;
-    bar.style.background = d.project_color;
-    const name = document.createElement('div');
-    name.className = 'sname';
-    name.textContent = d.project_name;
-    const time = document.createElement('div');
-    time.className = 'stime';
-    time.textContent = fmtShort(d.ms);
-    row.append(name, bar, time);
-    el.appendChild(row);
-  }
-  const foot = document.createElement('div');
-  foot.className = 'empty';
-  foot.textContent = `Spolu: ${fmtShort(totalAll)}`;
-  el.appendChild(foot);
-}
-
 /* ---------- História ---------- */
 async function loadHistory() {
   const data = await api.get(`/api/entries?range=${historyRange}`);
@@ -261,7 +227,7 @@ async function refreshAll() {
   renderStatus();
   renderProjects();
   tick();
-  await Promise.all([loadSummary(), loadHistory()]);
+  await loadHistory();
 }
 
 async function loadProjects() {
@@ -356,15 +322,6 @@ async function init() {
     await refreshAll();
   });
 
-  $('summary-range').addEventListener('click', (e) => {
-    if (e.target.dataset.range) {
-      summaryRange = e.target.dataset.range;
-      [...$('summary-range').children].forEach((b) =>
-        b.classList.toggle('active', b === e.target)
-      );
-      loadSummary();
-    }
-  });
   $('history-range').addEventListener('click', (e) => {
     if (e.target.dataset.range) {
       historyRange = e.target.dataset.range;

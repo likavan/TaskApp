@@ -289,34 +289,6 @@ section {
   color: #fff;
 }
 
-.summary {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.summary-row {
-  display: grid;
-  grid-template-columns: 130px 1fr auto;
-  align-items: center;
-  gap: 10px;
-}
-.summary-row .sname {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.9rem;
-}
-.summary-bar {
-  height: 18px;
-  border-radius: 6px;
-  min-width: 3px;
-}
-.summary-row .stime {
-  font-variant-numeric: tabular-nums;
-  font-size: 0.9rem;
-  color: var(--muted);
-}
-
 /* ---------- História ---------- */
 .history {
   display: flex;
@@ -461,9 +433,6 @@ section {
 }
 
 @media (max-width: 520px) {
-  .summary-row {
-    grid-template-columns: 90px 1fr auto;
-  }
   .history-row {
     grid-template-columns: 10px 1fr auto auto;
   }
