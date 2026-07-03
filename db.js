@@ -6,21 +6,35 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Lokálne: SQLite súbor v data/. Na Verceli/produkcii: Turso cez TURSO_DATABASE_URL.
-const url = process.env.TURSO_DATABASE_URL || 'file:' + join(__dirname, 'data', 'taskapp.db');
-if (url.startsWith('file:')) {
-  const dataDir = join(__dirname, 'data');
-  if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
+// Klient vytvárame lenivo, aby chýbajúca konfigurácia nezhodila celý modul pri importe
+// (na Verceli je disk read-only a mkdir by spadol) — chyba sa tak vráti ako čitateľná
+// JSON odpoveď z API namiesto pádu funkcie.
+let client = null;
+function getClient() {
+  if (client) return client;
+  if (!process.env.TURSO_DATABASE_URL && process.env.VERCEL) {
+    throw new Error(
+      'Databáza nie je nakonfigurovaná. Vo Vercel projekte nastav TURSO_DATABASE_URL ' +
+        'a TURSO_AUTH_TOKEN (Settings → Environment Variables) a sprav redeploy.'
+    );
+  }
+  const url =
+    process.env.TURSO_DATABASE_URL || 'file:' + join(__dirname, 'data', 'taskapp.db');
+  if (url.startsWith('file:')) {
+    const dataDir = join(__dirname, 'data');
+    if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
+  }
+  client = createClient({ url, authToken: process.env.TURSO_AUTH_TOKEN });
+  return client;
 }
-
-const db = createClient({
-  url,
-  authToken: process.env.TURSO_AUTH_TOKEN,
-});
 
 let initPromise = null;
 function init() {
-  initPromise ??= db.batch(
-    [
+  // Pri zlyhaní inicializáciu nememoizujeme, aby sa ďalší pokus mohol podariť
+  // (napr. krátkodobý výpadok siete smerom k Turso).
+  initPromise ??= getClient()
+    .batch(
+      [
       `CREATE TABLE IF NOT EXISTS projects (
         id         INTEGER PRIMARY KEY AUTOINCREMENT,
         name       TEXT NOT NULL,
@@ -39,9 +53,13 @@ function init() {
       `CREATE INDEX IF NOT EXISTS idx_entries_started ON entries(started_at)`,
       `CREATE UNIQUE INDEX IF NOT EXISTS idx_entries_running
         ON entries(ended_at) WHERE ended_at IS NULL`,
-    ],
-    'write'
-  );
+      ],
+      'write'
+    )
+    .catch((e) => {
+      initPromise = null;
+      throw e;
+    });
   return initPromise;
 }
 
@@ -50,7 +68,7 @@ const rowId = (res) => Number(res.lastInsertRowid);
 
 async function all(sql, args = {}) {
   await init();
-  const res = await db.execute({ sql, args });
+  const res = await getClient().execute({ sql, args });
   return res.rows;
 }
 
@@ -60,7 +78,7 @@ async function get(sql, args = {}) {
 
 async function run(sql, args = {}) {
   await init();
-  return db.execute({ sql, args });
+  return getClient().execute({ sql, args });
 }
 
 /* ---------- Projects ---------- */
@@ -103,7 +121,7 @@ export async function updateProject(id, fields) {
 export async function deleteProject(id) {
   await init();
   // Záznamy mažeme explicitne — FK pragma nemusí byť na remote spojení zapnutá.
-  await db.batch(
+  await getClient().batch(
     [
       { sql: 'DELETE FROM entries WHERE project_id = @id', args: { id } },
       { sql: 'DELETE FROM projects WHERE id = @id', args: { id } },
@@ -132,7 +150,7 @@ export async function switchProject({ projectId, note = '' }) {
   if (!project) throw new Error('Projekt neexistuje');
   const ts = now();
   await init();
-  const results = await db.batch(
+  const results = await getClient().batch(
     [
       { sql: 'UPDATE entries SET ended_at = @ts WHERE ended_at IS NULL', args: { ts } },
       {
@@ -193,5 +211,3 @@ export function summary({ from, to }) {
     { from, to, ts: now() }
   );
 }
-
-export default db;

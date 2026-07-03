@@ -85,6 +85,15 @@
       </section>
     </div>
 
+    <!-- Fatálna chyba (napr. nenakonfigurovaná databáza) -->
+    <div id="fatal" class="overlay hidden">
+      <div class="card fatal-card">
+        <h1>⚠️ Appka sa nevie spustiť</h1>
+        <p class="fatal-msg"></p>
+        <button onclick="location.reload()">Skúsiť znova</button>
+      </div>
+    </div>
+
     <div id="toast" class="toast hidden"></div>
 
     <script type="module" src="app.js"></script>

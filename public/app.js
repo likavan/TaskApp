@@ -12,7 +12,7 @@ const api = {
     }
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || res.statusText);
+      throw new Error(err.error || `${res.status} ${res.statusText}`);
     }
     return res.status === 204 ? null : res.json();
   },
@@ -276,6 +276,16 @@ function escapeHtml(s) {
   );
 }
 
+/* ---------- Fatálna chyba (namiesto prázdnej stránky) ---------- */
+function showFatal(err) {
+  console.error(err);
+  const el = $('fatal');
+  el.querySelector('.fatal-msg').textContent = err?.message || String(err);
+  el.classList.remove('hidden');
+  $('app').classList.add('hidden');
+  $('login').classList.add('hidden');
+}
+
 /* ---------- Login ---------- */
 function showLogin() {
   $('login').classList.remove('hidden');
@@ -320,7 +330,7 @@ async function init() {
     }
   });
 
-  const auth = await fetch('/api/auth').then((r) => r.json());
+  const auth = await api.get('/api/auth');
   if (auth.required && !auth.authed) {
     showLogin();
     return;
@@ -377,4 +387,4 @@ async function init() {
   }, 60000);
 }
 
-init();
+init().catch(showFatal);
