@@ -76,6 +76,7 @@ function renderStatus() {
     statusEl.classList.add('status-running');
     projEl.textContent = running.project_name;
     projEl.style.color = running.project_color;
+    $('status-since').textContent = `od ${fmtClock(running.started_at)}`;
     stopBtn.disabled = false;
     if (document.activeElement !== noteInput) noteInput.value = running.note || '';
     noteInput.placeholder = 'Poznámka k bežiacemu záznamu…';
@@ -83,6 +84,7 @@ function renderStatus() {
     statusEl.classList.remove('status-running');
     projEl.textContent = 'Nič nebeží';
     projEl.style.color = '';
+    $('status-since').textContent = '';
     stopBtn.disabled = true;
     noteInput.placeholder = 'Poznámka — napíš a klikni na projekt…';
   }
@@ -105,13 +107,15 @@ function renderProjects() {
     const btn = document.createElement('button');
     btn.className = 'project-btn';
     if (running && running.project_id === p.id) btn.classList.add('active');
-    btn.style.borderLeftColor = p.color;
     const total = todayTotals[p.id] || 0;
     btn.innerHTML = `
       ${i < 9 ? `<span class="idx">${i + 1}</span>` : ''}
-      <span class="pname">${escapeHtml(p.name)}</span>
-      <span class="today-total">${total ? fmtShort(total) : ''}</span>
-      <span class="gear" title="Upraviť">⚙</span>`;
+      <span class="prow">
+        <span class="dot" style="background:${p.color}"></span>
+        <span class="pname">${escapeHtml(p.name)}</span>
+        <span class="gear" title="Upraviť">⚙</span>
+      </span>
+      <span class="today-total">${total ? 'dnes ' + fmtShort(total) : ''}</span>`;
     btn.addEventListener('click', (e) => {
       if (e.target.classList.contains('gear')) {
         editProject(p);
@@ -190,8 +194,8 @@ async function loadHistory() {
     row.className = 'history-row';
     const dur = (e.ended_at || now()) - e.started_at;
     const swatch = `<span class="swatch" style="background:${e.project_color}"></span>`;
-    const time = `<span class="htime">${fmtClock(e.started_at)}${
-      e.ended_at ? '–' + fmtClock(e.ended_at) : ''
+    const time = `<span class="htime">${fmtClock(e.started_at)}–${
+      e.ended_at ? fmtClock(e.ended_at) : '…'
     }</span>`;
     const note = `<span class="hnote"><span class="hproj">${escapeHtml(
       e.project_name
