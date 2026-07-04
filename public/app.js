@@ -583,7 +583,7 @@ async function init() {
       await api.post('/api/login', { password: $('login-password').value });
       $('login-error').textContent = '';
       hideLogin();
-      await refreshAll();
+      await boot();
     } catch (err) {
       $('login-error').textContent = err.message;
     }
@@ -595,6 +595,14 @@ async function init() {
     return;
   }
   hideLogin();
+  await boot();
+}
+
+// Spustí appku po overení prístupu — beží práve raz.
+let booted = false;
+async function boot() {
+  if (booted) return;
+  booted = true;
 
   try {
     kimaiEnabled = (await api.get('/api/kimai/status')).enabled;

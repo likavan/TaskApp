@@ -18,10 +18,13 @@ prehľad odpracovaného času aj históriu.
 
 ## Technológie
 
-- **Backend:** Node.js + Express
-- **Databáza:** SQLite cez `@libsql/client` — lokálne jeden súbor v `data/`,
-  v produkcii [Turso](https://turso.tech) (hostovaný SQLite)
 - **Frontend:** čisté HTML/CSS/JS (žiadny framework, žiadny build)
+- **Backend — dve rovnocenné verzie s identickým API:**
+  - **Node.js + Express** (`server.js`) — lokálny beh a Vercel; SQLite cez
+    `@libsql/client` (lokálne súbor v `data/`, na Verceli [Turso](https://turso.tech))
+  - **PHP** (`public/api.php`) — klasický zdieľaný hosting (napr. Websupport);
+    SQLite súbor priamo na hostingu, konfigurácia v `config.php`.
+    Návod: [NASADENIE-WEBSUPPORT.md](NASADENIE-WEBSUPPORT.md)
 
 ## Spustenie
 

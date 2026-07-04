@@ -1,0 +1,11 @@
+# TaskApp — Apache konfigurácia pre zdieľaný hosting (Websupport a pod.)
+
+RewriteEngine On
+
+# Všetky /api/* požiadavky obsluhuje api.php
+RewriteRule ^api/ api.php [QSA,L]
+
+# Konfigurácia s heslami nesmie byť dostupná zvonka
+<FilesMatch "^config\.(php|example\.php)$">
+  Require all denied
+</FilesMatch>
