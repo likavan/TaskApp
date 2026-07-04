@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as db from './db.js';
+import * as kimai from './kimai.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -121,6 +122,43 @@ app.delete(
   })
 );
 
+/* ---------- Kimai ---------- */
+app.get('/api/kimai/status', (req, res) => {
+  res.json({ enabled: kimai.enabled() });
+});
+
+app.get(
+  '/api/kimai/projects',
+  ah(async (req, res) => {
+    res.json(await kimai.listProjects());
+  })
+);
+
+app.get(
+  '/api/kimai/activities',
+  ah(async (req, res) => {
+    res.json(await kimai.listActivities(req.query.project));
+  })
+);
+
+// Ukonči v Kimai timesheet patriaci k záznamu (best-effort).
+async function kimaiStop(entry) {
+  if (!kimai.enabled() || !entry?.kimai_id || !entry.ended_at) return;
+  await kimai.updateTimesheet(entry.kimai_id, { end: kimai.toKimaiDate(entry.ended_at) });
+}
+
+// Založ v Kimai bežiaci timesheet pre nový záznam a zapíš si jeho id.
+async function kimaiStart(entry, project) {
+  if (!kimai.enabled() || !project?.kimai_project_id || !project?.kimai_activity_id) return;
+  const ts = await kimai.startTimesheet({
+    begin: kimai.toKimaiDate(entry.started_at),
+    project: project.kimai_project_id,
+    activity: project.kimai_activity_id,
+    description: entry.note || '',
+  });
+  await db.updateEntry(entry.id, { kimai_id: ts.id });
+}
+
 /* ---------- Stav / prepínanie ---------- */
 app.get(
   '/api/state',
@@ -133,20 +171,37 @@ app.post(
   '/api/switch',
   ah(async (req, res) => {
     const projectId = Number(req.body?.projectId);
-    if (!(await db.getProject(projectId)))
-      return res.status(400).json({ error: 'Neplatný projekt' });
+    const project = await db.getProject(projectId);
+    if (!project) return res.status(400).json({ error: 'Neplatný projekt' });
+    const prev = await db.getRunning();
     const entry = await db.switchProject({
       projectId,
       note: String(req.body?.note ?? ''),
     });
-    res.json({ running: await db.getRunning(), entry });
+    let kimaiError = null;
+    try {
+      if (prev) await kimaiStop({ ...prev, ended_at: entry.started_at });
+      await kimaiStart(entry, project);
+    } catch (e) {
+      console.error('Kimai sync:', e.message);
+      kimaiError = e.message;
+    }
+    res.json({ running: await db.getRunning(), entry, kimaiError });
   })
 );
 
 app.post(
   '/api/stop',
   ah(async (req, res) => {
-    res.json({ stopped: await db.stopRunning() });
+    const stopped = await db.stopRunning();
+    let kimaiError = null;
+    try {
+      if (stopped) await kimaiStop(stopped);
+    } catch (e) {
+      console.error('Kimai sync:', e.message);
+      kimaiError = e.message;
+    }
+    res.json({ stopped, kimaiError });
   })
 );
 
@@ -154,15 +209,37 @@ app.post(
 app.patch(
   '/api/entries/:id',
   ah(async (req, res) => {
-    res.json(await db.updateEntry(Number(req.params.id), req.body ?? {}));
+    const entry = await db.updateEntry(Number(req.params.id), req.body ?? {});
+    let kimaiError = null;
+    if (kimai.enabled() && entry?.kimai_id) {
+      try {
+        const body = { description: entry.note || '', begin: kimai.toKimaiDate(entry.started_at) };
+        if (entry.ended_at) body.end = kimai.toKimaiDate(entry.ended_at);
+        await kimai.updateTimesheet(entry.kimai_id, body);
+      } catch (e) {
+        console.error('Kimai sync:', e.message);
+        kimaiError = e.message;
+      }
+    }
+    res.json({ ...entry, kimaiError });
   })
 );
 
 app.delete(
   '/api/entries/:id',
   ah(async (req, res) => {
+    const entry = await db.getEntry(Number(req.params.id));
+    let kimaiError = null;
+    if (kimai.enabled() && entry?.kimai_id) {
+      try {
+        await kimai.deleteTimesheet(entry.kimai_id);
+      } catch (e) {
+        console.error('Kimai sync:', e.message);
+        kimaiError = e.message;
+      }
+    }
     await db.deleteEntry(Number(req.params.id));
-    res.json({ ok: true });
+    res.json({ ok: true, kimaiError });
   })
 );
 

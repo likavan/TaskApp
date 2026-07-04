@@ -56,6 +56,21 @@ function init() {
       ],
       'write'
     )
+    .then(async () => {
+      // Migrácie: nové stĺpce pre prepojenie s Kimai (ignoruj "už existuje").
+      const alters = [
+        'ALTER TABLE projects ADD COLUMN kimai_project_id INTEGER',
+        'ALTER TABLE projects ADD COLUMN kimai_activity_id INTEGER',
+        'ALTER TABLE entries ADD COLUMN kimai_id INTEGER',
+      ];
+      for (const sql of alters) {
+        try {
+          await getClient().execute(sql);
+        } catch {
+          /* stĺpec už existuje */
+        }
+      }
+    })
     .catch((e) => {
       initPromise = null;
       throw e;
@@ -108,7 +123,7 @@ export async function createProject({ name, color }) {
 }
 
 export async function updateProject(id, fields) {
-  const allowed = ['name', 'color', 'archived'];
+  const allowed = ['name', 'color', 'archived', 'kimai_project_id', 'kimai_activity_id'];
   const keys = Object.keys(fields).filter((k) => allowed.includes(k));
   if (keys.length === 0) return getProject(id);
   const setClause = keys.map((k) => `${k} = @${k}`).join(', ');
@@ -172,7 +187,7 @@ export async function stopRunning() {
 }
 
 export async function updateEntry(id, fields) {
-  const allowed = ['note', 'started_at', 'ended_at', 'project_id'];
+  const allowed = ['note', 'started_at', 'ended_at', 'project_id', 'kimai_id'];
   const keys = Object.keys(fields).filter((k) => allowed.includes(k));
   if (keys.length === 0) return getEntry(id);
   const setClause = keys.map((k) => `${k} = @${k}`).join(', ');

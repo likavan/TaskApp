@@ -28,6 +28,8 @@ let serverSkew = 0; // rozdiel medzi serverom a klientom (ms)
 let projects = [];
 let todayTotals = {}; // project_id -> ms (dnes)
 let historyRange = 'today';
+let kimaiEnabled = false;
+let kimaiProjects = null; // cache zoznamu Kimai projektov
 
 const $ = (id) => document.getElementById(id);
 const now = () => Date.now() + serverSkew;
@@ -173,7 +175,62 @@ function editProject(btn, p) {
   del.className = 'p-del';
   del.textContent = 'Zmazať projekt';
 
-  form.append(color, name, ok, cancel, del);
+  // Prepojenie na Kimai: výber projektu a aktivity (len ak je Kimai nakonfigurované).
+  let kimaiProjSel = null;
+  let kimaiActSel = null;
+  let kimaiRow = null;
+  if (kimaiEnabled) {
+    kimaiRow = document.createElement('div');
+    kimaiRow.className = 'p-kimai';
+    kimaiProjSel = document.createElement('select');
+    kimaiActSel = document.createElement('select');
+    kimaiProjSel.innerHTML = '<option value="">Kimai: neprepojené</option>';
+    kimaiActSel.innerHTML = '<option value="">— aktivita —</option>';
+    kimaiActSel.disabled = true;
+    kimaiRow.append(kimaiProjSel, kimaiActSel);
+
+    const loadActivities = async (projectId, selectedId) => {
+      kimaiActSel.innerHTML = '<option value="">— aktivita —</option>';
+      kimaiActSel.disabled = !projectId;
+      if (!projectId) return;
+      try {
+        const acts = await api.get(`/api/kimai/activities?project=${projectId}`);
+        for (const a of acts) {
+          const o = document.createElement('option');
+          o.value = a.id;
+          o.textContent = a.name;
+          kimaiActSel.appendChild(o);
+        }
+        if (selectedId) kimaiActSel.value = String(selectedId);
+      } catch {
+        toast('Kimai: nepodarilo sa načítať aktivity');
+      }
+    };
+
+    (async () => {
+      try {
+        kimaiProjects ??= await api.get('/api/kimai/projects');
+        for (const kp of kimaiProjects) {
+          const o = document.createElement('option');
+          o.value = kp.id;
+          o.textContent = kp.name;
+          kimaiProjSel.appendChild(o);
+        }
+        if (p.kimai_project_id) {
+          kimaiProjSel.value = String(p.kimai_project_id);
+          await loadActivities(p.kimai_project_id, p.kimai_activity_id);
+        }
+      } catch {
+        toast('Kimai: nepodarilo sa načítať projekty');
+      }
+    })();
+
+    kimaiProjSel.addEventListener('change', () => loadActivities(kimaiProjSel.value, null));
+  }
+
+  form.append(color, name, ok, cancel);
+  if (kimaiRow) form.append(kimaiRow);
+  form.append(del);
   btn.replaceWith(form);
   name.focus();
 
@@ -189,8 +246,13 @@ function editProject(btn, p) {
       toast('Názov nemôže byť prázdny');
       return;
     }
+    const patch = { name: trimmed, color: color.value };
+    if (kimaiEnabled) {
+      patch.kimai_project_id = kimaiProjSel.value ? Number(kimaiProjSel.value) : null;
+      patch.kimai_activity_id = kimaiActSel.value ? Number(kimaiActSel.value) : null;
+    }
     try {
-      await api.patch(`/api/projects/${p.id}`, { name: trimmed, color: color.value });
+      await api.patch(`/api/projects/${p.id}`, patch);
       toast('Uložené');
     } catch (err) {
       if (err.message !== 'unauth') toast('Chyba: ' + err.message);
@@ -215,7 +277,7 @@ async function switchTo(projectId, { focusNote = true } = {}) {
     running = data.running;
     $('note-input').value = '';
     const p = projects.find((x) => x.id === projectId);
-    toast(`▶ ${p ? p.name : 'Projekt'}`);
+    toast(data.kimaiError ? '⚠ Kimai sync zlyhal' : `▶ ${p ? p.name : 'Projekt'}`);
     await refreshAll();
     // Po kliknutí myšou vráť fokus do poznámky (tok „napíš → klik").
     // Po klávesovej skratke fokus nechaj mimo, aby fungovali ďalšie skratky (napr. S = stop).
@@ -227,9 +289,9 @@ async function switchTo(projectId, { focusNote = true } = {}) {
 
 async function stopTracking() {
   if (!running) return;
-  await api.post('/api/stop');
+  const r = await api.post('/api/stop');
   running = null;
-  toast('■ Zastavené');
+  toast(r.kimaiError ? '⚠ Kimai sync zlyhal' : '■ Zastavené');
   await refreshAll();
 }
 
@@ -533,6 +595,12 @@ async function init() {
     return;
   }
   hideLogin();
+
+  try {
+    kimaiEnabled = (await api.get('/api/kimai/status')).enabled;
+  } catch {
+    kimaiEnabled = false;
+  }
 
   // Ovládacie prvky
   $('stop-btn').addEventListener('click', stopTracking);

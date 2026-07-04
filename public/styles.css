@@ -334,6 +334,20 @@ input::placeholder {
   background: var(--field);
   color: var(--text);
 }
+.project-edit .p-kimai {
+  width: 100%;
+  display: flex;
+  gap: 8px;
+}
+.project-edit .p-kimai select {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--text);
+}
 .project-edit .p-del {
   width: 100%;
   text-align: left;

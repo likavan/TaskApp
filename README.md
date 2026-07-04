@@ -48,6 +48,9 @@ npm run dev
 | `APP_PASSWORD`       | Ak je nastavená, zapne sa jednoduchá ochrana heslom (prihlásenie).       |
 | `TURSO_DATABASE_URL` | URL Turso databázy (`libsql://…`). Ak nie je nastavená, použije sa lokálny súbor `data/taskapp.db`. |
 | `TURSO_AUTH_TOKEN`   | Auth token k Turso databáze.                                             |
+| `KIMAI_URL`          | URL Kimai inštancie (napr. `https://kimai.firma.sk`). Zapne živé zrkadlenie do Kimai. |
+| `KIMAI_API_TOKEN`    | API token z Kimai (profil → API Access).                                 |
+| `KIMAI_TIMEZONE`     | Časové pásmo pre zápis do Kimai (predvolene `Europe/Bratislava`).        |
 
 Príklad s ochranou heslom:
 
@@ -88,6 +91,20 @@ prepína sa len env premennou.
 
 Alternatíva bez Turso: hosting s trvalým diskom (Fly.io, Railway, Render) — tam appka
 beží ako obyčajný Node proces a stačí lokálny SQLite súbor, bez ďalšej konfigurácie.
+
+## Prepojenie s Kimai (voliteľné)
+
+Ak nastavíš `KIMAI_URL` a `KIMAI_API_TOKEN`, TaskApp živo zrkadlí záznamy do
+[Kimai 2](https://www.kimai.org) cez jeho REST API:
+
+1. V editácii projektu (⚙) sa objaví výber **Kimai projekt** a **aktivita** —
+   namapuj TaskApp projekt na Kimai.
+2. Prepnutie/stop namapovaného projektu vytvorí/ukončí timesheet v Kimai;
+   úprava časov či poznámky a zmazanie záznamu sa prenesú tiež.
+3. Keď Kimai nie je dostupné, TaskApp funguje ďalej — akcia sa vykoná lokálne
+   a appka len zobrazí „⚠ Kimai sync zlyhal".
+
+Neprepojené projekty sa do Kimai neposielajú.
 
 ## Ako to funguje
 
