@@ -89,6 +89,7 @@ $db->exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_entries_running
 foreach ([
     'ALTER TABLE projects ADD COLUMN kimai_project_id INTEGER',
     'ALTER TABLE projects ADD COLUMN kimai_activity_id INTEGER',
+    'ALTER TABLE projects ADD COLUMN kimai_customer_id INTEGER',
     'ALTER TABLE entries ADD COLUMN kimai_id INTEGER',
 ] as $sql) {
     try {
@@ -292,8 +293,12 @@ function range_bounds(): array
 if ($method === 'GET' && $path === '/kimai/status') {
     json_out(['enabled' => kimai_enabled()]);
 }
+if ($method === 'GET' && $path === '/kimai/customers') {
+    json_out(kimai_fetch('/api/customers'));
+}
 if ($method === 'GET' && $path === '/kimai/projects') {
-    json_out(kimai_fetch('/api/projects'));
+    $c = isset($_GET['customer']) ? '?customer=' . (int) $_GET['customer'] : '';
+    json_out(kimai_fetch('/api/projects' . $c));
 }
 if ($method === 'GET' && $path === '/kimai/activities') {
     $p = isset($_GET['project']) ? '?project=' . (int) $_GET['project'] : '';
@@ -329,7 +334,7 @@ if (preg_match('#^/projects/(\d+)$#', $path, $m)) {
         if (!get_project($id)) {
             fail('Nenájdené', 404);
         }
-        $allowed = ['name', 'color', 'archived', 'kimai_project_id', 'kimai_activity_id'];
+        $allowed = ['name', 'color', 'archived', 'kimai_customer_id', 'kimai_project_id', 'kimai_activity_id'];
         $sets = [];
         $args = ['id' => $id];
         foreach ($allowed as $k) {

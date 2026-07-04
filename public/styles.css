@@ -337,7 +337,8 @@ input::placeholder {
 .project-edit .p-kimai {
   width: 100%;
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
 }
 .project-edit .p-kimai select {
   flex: 1;

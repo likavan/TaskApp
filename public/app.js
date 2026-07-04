@@ -29,7 +29,7 @@ let projects = [];
 let todayTotals = {}; // project_id -> ms (dnes)
 let historyRange = 'today';
 let kimaiEnabled = false;
-let kimaiProjects = null; // cache zoznamu Kimai projektov
+let kimaiCustomers = null; // cache zoznamu Kimai zákazníkov
 
 const $ = (id) => document.getElementById(id);
 const now = () => Date.now() + serverSkew;
@@ -175,56 +175,76 @@ function editProject(btn, p) {
   del.className = 'p-del';
   del.textContent = 'Zmazať projekt';
 
-  // Prepojenie na Kimai: výber projektu a aktivity (len ak je Kimai nakonfigurované).
+  // Prepojenie na Kimai: zákazník → projekt (podľa zákazníka) → činnosť.
+  let kimaiCustSel = null;
   let kimaiProjSel = null;
   let kimaiActSel = null;
   let kimaiRow = null;
   if (kimaiEnabled) {
     kimaiRow = document.createElement('div');
     kimaiRow.className = 'p-kimai';
+    kimaiCustSel = document.createElement('select');
     kimaiProjSel = document.createElement('select');
     kimaiActSel = document.createElement('select');
-    kimaiProjSel.innerHTML = '<option value="">Kimai: neprepojené</option>';
-    kimaiActSel.innerHTML = '<option value="">— aktivita —</option>';
-    kimaiActSel.disabled = true;
-    kimaiRow.append(kimaiProjSel, kimaiActSel);
+    kimaiCustSel.innerHTML = '<option value="">Kimai: neprepojené</option>';
+    kimaiRow.append(kimaiCustSel, kimaiProjSel, kimaiActSel);
 
+    const fillOptions = (sel, placeholder, items, selectedId) => {
+      sel.innerHTML = `<option value="">${placeholder}</option>`;
+      for (const it of items) {
+        const o = document.createElement('option');
+        o.value = it.id;
+        o.textContent = it.name;
+        sel.appendChild(o);
+      }
+      if (selectedId) sel.value = String(selectedId);
+      sel.disabled = false;
+    };
+    const resetSel = (sel, placeholder) => {
+      sel.innerHTML = `<option value="">${placeholder}</option>`;
+      sel.disabled = true;
+    };
+    resetSel(kimaiProjSel, '— projekt —');
+    resetSel(kimaiActSel, '— činnosť —');
+
+    const loadProjects = async (customerId, selectedId) => {
+      resetSel(kimaiProjSel, '— projekt —');
+      resetSel(kimaiActSel, '— činnosť —');
+      if (!customerId) return;
+      try {
+        const list = await api.get(`/api/kimai/projects?customer=${customerId}`);
+        fillOptions(kimaiProjSel, '— projekt —', list, selectedId);
+      } catch {
+        toast('Kimai: nepodarilo sa načítať projekty');
+      }
+    };
     const loadActivities = async (projectId, selectedId) => {
-      kimaiActSel.innerHTML = '<option value="">— aktivita —</option>';
-      kimaiActSel.disabled = !projectId;
+      resetSel(kimaiActSel, '— činnosť —');
       if (!projectId) return;
       try {
-        const acts = await api.get(`/api/kimai/activities?project=${projectId}`);
-        for (const a of acts) {
-          const o = document.createElement('option');
-          o.value = a.id;
-          o.textContent = a.name;
-          kimaiActSel.appendChild(o);
-        }
-        if (selectedId) kimaiActSel.value = String(selectedId);
+        const list = await api.get(`/api/kimai/activities?project=${projectId}`);
+        fillOptions(kimaiActSel, '— činnosť —', list, selectedId);
       } catch {
-        toast('Kimai: nepodarilo sa načítať aktivity');
+        toast('Kimai: nepodarilo sa načítať činnosti');
       }
     };
 
     (async () => {
       try {
-        kimaiProjects ??= await api.get('/api/kimai/projects');
-        for (const kp of kimaiProjects) {
-          const o = document.createElement('option');
-          o.value = kp.id;
-          o.textContent = kp.name;
-          kimaiProjSel.appendChild(o);
-        }
-        if (p.kimai_project_id) {
-          kimaiProjSel.value = String(p.kimai_project_id);
-          await loadActivities(p.kimai_project_id, p.kimai_activity_id);
+        kimaiCustomers ??= await api.get('/api/kimai/customers');
+        fillOptions(kimaiCustSel, 'Kimai: neprepojené', kimaiCustomers, p.kimai_customer_id);
+        if (p.kimai_customer_id) {
+          await loadProjects(p.kimai_customer_id, p.kimai_project_id);
+          if (p.kimai_project_id) {
+            await loadActivities(p.kimai_project_id, p.kimai_activity_id);
+          }
         }
       } catch {
-        toast('Kimai: nepodarilo sa načítať projekty');
+        toast('Kimai: nepodarilo sa načítať zákazníkov');
       }
     })();
 
+    kimaiCustSel.addEventListener('change', () => loadProjects(kimaiCustSel.value, null));
     kimaiProjSel.addEventListener('change', () => loadActivities(kimaiProjSel.value, null));
   }
 
@@ -248,8 +268,15 @@ function editProject(btn, p) {
     }
     const patch = { name: trimmed, color: color.value };
     if (kimaiEnabled) {
+      patch.kimai_customer_id = kimaiCustSel.value ? Number(kimaiCustSel.value) : null;
       patch.kimai_project_id = kimaiProjSel.value ? Number(kimaiProjSel.value) : null;
       patch.kimai_activity_id = kimaiActSel.value ? Number(kimaiActSel.value) : null;
+      // Nekompletné mapovanie = žiadne zrkadlenie (Kimai vyžaduje všetko).
+      if (!patch.kimai_customer_id || !patch.kimai_project_id || !patch.kimai_activity_id) {
+        patch.kimai_customer_id = patch.kimai_customer_id || null;
+        patch.kimai_project_id = null;
+        patch.kimai_activity_id = null;
+      }
     }
     try {
       await api.patch(`/api/projects/${p.id}`, patch);

@@ -128,9 +128,16 @@ app.get('/api/kimai/status', (req, res) => {
 });
 
 app.get(
+  '/api/kimai/customers',
+  ah(async (req, res) => {
+    res.json(await kimai.listCustomers());
+  })
+);
+
+app.get(
   '/api/kimai/projects',
   ah(async (req, res) => {
-    res.json(await kimai.listProjects());
+    res.json(await kimai.listProjects(req.query.customer));
   })
 );
 

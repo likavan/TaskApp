@@ -39,7 +39,10 @@ export function toKimaiDate(ts) {
   return s.replace(' ', 'T');
 }
 
-export const listProjects = () => kfetch('/api/projects');
+export const listCustomers = () => kfetch('/api/customers');
+
+export const listProjects = (customerId) =>
+  kfetch('/api/projects' + (customerId ? `?customer=${customerId}` : ''));
 
 export const listActivities = (projectId) =>
   kfetch('/api/activities' + (projectId ? `?project=${projectId}` : ''));

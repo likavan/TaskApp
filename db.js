@@ -61,6 +61,7 @@ function init() {
       const alters = [
         'ALTER TABLE projects ADD COLUMN kimai_project_id INTEGER',
         'ALTER TABLE projects ADD COLUMN kimai_activity_id INTEGER',
+        'ALTER TABLE projects ADD COLUMN kimai_customer_id INTEGER',
         'ALTER TABLE entries ADD COLUMN kimai_id INTEGER',
       ];
       for (const sql of alters) {
@@ -123,7 +124,14 @@ export async function createProject({ name, color }) {
 }
 
 export async function updateProject(id, fields) {
-  const allowed = ['name', 'color', 'archived', 'kimai_project_id', 'kimai_activity_id'];
+  const allowed = [
+    'name',
+    'color',
+    'archived',
+    'kimai_customer_id',
+    'kimai_project_id',
+    'kimai_activity_id',
+  ];
   const keys = Object.keys(fields).filter((k) => allowed.includes(k));
   if (keys.length === 0) return getProject(id);
   const setClause = keys.map((k) => `${k} = @${k}`).join(', ');
