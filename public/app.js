@@ -126,7 +126,7 @@ function renderProjects() {
       <span class="today-total">${total ? 'dnes ' + fmtShort(total) : ''}</span>`;
     btn.addEventListener('click', (e) => {
       if (e.target.classList.contains('gear')) {
-        editProject(p);
+        editProject(btn, p);
         return;
       }
       switchTo(p.id);
@@ -135,20 +135,72 @@ function renderProjects() {
   });
 }
 
-async function editProject(p) {
-  const name = prompt('Názov projektu:', p.name);
-  if (name === null) return;
-  const trimmed = name.trim();
-  if (trimmed === '' ) {
-    if (confirm(`Zmazať projekt „${p.name}" a všetky jeho záznamy?`)) {
-      await api.del(`/api/projects/${p.id}`);
-      toast('Projekt zmazaný');
-      await refreshAll();
+// Inline editácia projektu: názov, farba, zmazanie.
+// Riadok projektu je <button>, takže formulár ho na čas úpravy nahradí.
+function editProject(btn, p) {
+  const form = document.createElement('form');
+  form.className = 'project-edit';
+
+  const color = document.createElement('input');
+  color.type = 'color';
+  color.className = 'p-color';
+  color.value = p.color;
+  color.title = 'Farba projektu';
+
+  const name = document.createElement('input');
+  name.type = 'text';
+  name.className = 'p-name';
+  name.value = p.name;
+  name.placeholder = 'Názov projektu…';
+
+  const ok = document.createElement('button');
+  ok.type = 'submit';
+  ok.className = 'e-ok';
+  ok.title = 'Uložiť';
+  ok.textContent = '✓';
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.className = 'e-cancel';
+  cancel.title = 'Zrušiť';
+  cancel.textContent = '✕';
+
+  const del = document.createElement('button');
+  del.type = 'button';
+  del.className = 'p-del';
+  del.textContent = 'Zmazať projekt';
+
+  form.append(color, name, ok, cancel, del);
+  btn.replaceWith(form);
+  name.focus();
+
+  const close = () => renderProjects();
+  cancel.addEventListener('click', close);
+  form.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape') close();
+  });
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const trimmed = name.value.trim();
+    if (!trimmed) {
+      toast('Názov nemôže byť prázdny');
+      return;
     }
-    return;
-  }
-  await api.patch(`/api/projects/${p.id}`, { name: trimmed });
-  await refreshAll();
+    try {
+      await api.patch(`/api/projects/${p.id}`, { name: trimmed, color: color.value });
+      toast('Uložené');
+    } catch (err) {
+      if (err.message !== 'unauth') toast('Chyba: ' + err.message);
+      return;
+    }
+    await refreshAll();
+  });
+  del.addEventListener('click', async () => {
+    if (!confirm(`Zmazať projekt „${p.name}" a všetky jeho záznamy?`)) return;
+    await api.del(`/api/projects/${p.id}`);
+    if (running && running.project_id === p.id) running = null;
+    toast('Projekt zmazaný');
+    await refreshAll();
+  });
 }
 
 /* ---------- Prepínanie ---------- */
