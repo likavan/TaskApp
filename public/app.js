@@ -246,15 +246,17 @@ async function saveNote() {
 }
 
 /* ---------- História ---------- */
-// Popis dňa: Dnes / Včera / „štvrtok 2. 7."
+// Popis dňa: „Dnes (4. 7.)" / „Včera (3. 7.)" / „štvrtok (2. 7.)"
 function dayLabel(ts) {
   const d = new Date(ts);
   const today = new Date();
   const startOf = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
   const diffDays = Math.round((startOf(today) - startOf(d)) / 86400000);
-  if (diffDays === 0) return 'Dnes';
-  if (diffDays === 1) return 'Včera';
-  return d.toLocaleDateString('sk-SK', { weekday: 'long', day: 'numeric', month: 'numeric' });
+  const dateStr = d.toLocaleDateString('sk-SK', { day: 'numeric', month: 'numeric' });
+  if (diffDays === 0) return `Dnes (${dateStr})`;
+  if (diffDays === 1) return `Včera (${dateStr})`;
+  const weekday = d.toLocaleDateString('sk-SK', { weekday: 'long' });
+  return `${weekday} (${dateStr})`;
 }
 
 async function loadHistory() {
