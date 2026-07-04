@@ -246,6 +246,17 @@ async function saveNote() {
 }
 
 /* ---------- História ---------- */
+// Popis dňa: Dnes / Včera / „štvrtok 2. 7."
+function dayLabel(ts) {
+  const d = new Date(ts);
+  const today = new Date();
+  const startOf = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diffDays = Math.round((startOf(today) - startOf(d)) / 86400000);
+  if (diffDays === 0) return 'Dnes';
+  if (diffDays === 1) return 'Včera';
+  return d.toLocaleDateString('sk-SK', { weekday: 'long', day: 'numeric', month: 'numeric' });
+}
+
 async function loadHistory() {
   const data = await api.get(`/api/entries?${rangeQuery(historyRange)}`);
   const el = $('history');
@@ -254,7 +265,33 @@ async function loadHistory() {
     el.innerHTML = '<div class="empty">Žiadne záznamy.</div>';
     return;
   }
+
+  // Zoskupenie po dňoch (dáta sú zoradené od najnovších) + súčet za deň.
+  const groups = [];
   for (const e of data) {
+    const key = new Date(e.started_at).toDateString();
+    let g = groups[groups.length - 1];
+    if (!g || g.key !== key) {
+      g = { key, ts: e.started_at, entries: [], total: 0 };
+      groups.push(g);
+    }
+    g.entries.push(e);
+    g.total += (e.ended_at || now()) - e.started_at;
+  }
+
+  for (const g of groups) {
+    const head = document.createElement('div');
+    head.className = 'day-head';
+    head.innerHTML = `
+      <span class="day-label">${dayLabel(g.ts)}</span>
+      <span class="day-total">${fmtShort(g.total)}</span>`;
+    el.appendChild(head);
+    for (const e of g.entries) renderHistoryRow(el, e);
+  }
+}
+
+function renderHistoryRow(el, e) {
+  {
     const row = document.createElement('div');
     row.className = 'history-row';
     const dur = (e.ended_at || now()) - e.started_at;

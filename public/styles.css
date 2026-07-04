@@ -411,6 +411,26 @@ input::placeholder {
   gap: 8px;
   margin-top: 10px;
 }
+.day-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 14px 2px 2px;
+}
+.day-head:first-child {
+  margin-top: 2px;
+}
+.day-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.day-total {
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
 .history-row {
   display: grid;
   grid-template-columns: 10px 1fr auto auto;
