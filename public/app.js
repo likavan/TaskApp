@@ -216,7 +216,7 @@ async function loadHistory() {
         <button class="hedit" title="Upraviť poznámku">✎</button>
         <button class="hdel" title="Zmazať">✕</button>
       </div>`;
-    row.querySelector('.hedit').addEventListener('click', () => editEntryNote(row, e));
+    row.querySelector('.hedit').addEventListener('click', () => editEntry(row, e));
     row.querySelector('.hdel').addEventListener('click', async () => {
       await api.del(`/api/entries/${e.id}`);
       if (running && running.id === e.id) running = null;
@@ -226,41 +226,115 @@ async function loadHistory() {
   }
 }
 
-// Inline editácia poznámky priamo v riadku histórie — funguje aj pre ukončené záznamy.
-function editEntryNote(row, entry) {
-  if (row.querySelector('.hnote-input')) return;
-  const main = row.querySelector('.hmain');
-  main.querySelector('.hnote')?.remove();
-  const input = document.createElement('input');
-  input.className = 'hnote-input';
-  input.type = 'text';
-  input.value = entry.note || '';
-  input.placeholder = 'Poznámka…';
-  main.appendChild(input);
-  input.focus();
-  input.setSelectionRange(input.value.length, input.value.length);
+// Inline editácia záznamu v histórii: poznámka + čas od/do.
+// Pri bežiacom zázname sa dá meniť len začiatok.
+const toHM = (ts) => {
+  const d = new Date(ts);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+};
+// Nový timestamp: pôvodný dátum záznamu + zadané HH:MM.
+const withHM = (ts, hm) => {
+  const [h, m] = hm.split(':').map(Number);
+  const d = new Date(ts);
+  d.setHours(h, m, 0, 0);
+  return d.getTime();
+};
 
-  let done = false;
-  const finish = async (save) => {
-    if (done) return;
-    done = true;
-    if (save) {
-      const note = input.value.trim();
-      try {
-        await api.patch(`/api/entries/${entry.id}`, { note });
-        if (running && running.id === entry.id) running.note = note;
-        toast('Poznámka uložená');
-      } catch (err) {
-        if (err.message !== 'unauth') toast('Chyba: ' + err.message);
+function editEntry(row, entry) {
+  if (row.classList.contains('editing')) return;
+  row.classList.add('editing');
+
+  const form = document.createElement('form');
+  form.className = 'edit-form';
+
+  const note = document.createElement('input');
+  note.type = 'text';
+  note.className = 'e-note';
+  note.placeholder = 'Poznámka…';
+  note.value = entry.note || '';
+
+  const start = document.createElement('input');
+  start.type = 'time';
+  start.className = 'e-time';
+  start.required = true;
+  start.value = toHM(entry.started_at);
+
+  let end = null;
+  if (entry.ended_at) {
+    end = document.createElement('input');
+    end.type = 'time';
+    end.className = 'e-time';
+    end.required = true;
+    end.value = toHM(entry.ended_at);
+  }
+
+  const ok = document.createElement('button');
+  ok.type = 'submit';
+  ok.className = 'e-ok';
+  ok.title = 'Uložiť';
+  ok.textContent = '✓';
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.className = 'e-cancel';
+  cancel.title = 'Zrušiť';
+  cancel.textContent = '✕';
+
+  const times = document.createElement('div');
+  times.className = 'e-times';
+  times.append(start);
+  if (end) {
+    const sep = document.createElement('span');
+    sep.className = 'e-sep';
+    sep.textContent = '–';
+    times.append(sep, end);
+  } else {
+    const badge = document.createElement('span');
+    badge.className = 'e-sep';
+    badge.textContent = '– beží';
+    times.append(badge);
+  }
+  times.append(ok, cancel);
+  form.append(note, times);
+  row.appendChild(form);
+  note.focus();
+
+  const close = () => {
+    form.remove();
+    row.classList.remove('editing');
+  };
+  cancel.addEventListener('click', close);
+  form.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape') close();
+  });
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const patch = {
+      note: note.value.trim(),
+      started_at: withHM(entry.started_at, start.value),
+    };
+    if (end) {
+      patch.ended_at = withHM(entry.ended_at, end.value);
+      if (patch.ended_at <= patch.started_at) {
+        toast('Koniec musí byť po začiatku');
+        return;
       }
+    } else if (patch.started_at > Date.now()) {
+      toast('Začiatok nemôže byť v budúcnosti');
+      return;
+    }
+    try {
+      await api.patch(`/api/entries/${entry.id}`, patch);
+      if (running && running.id === entry.id) {
+        running.note = patch.note;
+        running.started_at = patch.started_at;
+      }
+      toast('Uložené');
+    } catch (err) {
+      if (err.message !== 'unauth') toast('Chyba: ' + err.message);
+      return;
     }
     await refreshAll();
-  };
-  input.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Enter') finish(true);
-    else if (ev.key === 'Escape') finish(false);
   });
-  input.addEventListener('blur', () => finish(true));
 }
 
 /* ---------- Obnovenie ---------- */
