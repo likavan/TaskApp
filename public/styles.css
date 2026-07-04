@@ -275,14 +275,22 @@ input::placeholder {
   display: none;
 }
 .project-btn .gear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  flex-shrink: 0;
   background: none;
   border: none;
   color: var(--muted);
   cursor: pointer;
-  font-size: 0.9rem;
-  padding: 2px 4px;
   opacity: 0;
   transition: opacity 0.15s;
+}
+.project-btn .gear svg {
+  display: block;
 }
 @media (hover: hover) {
   .project-btn:hover .gear {
@@ -454,18 +462,24 @@ input::placeholder {
 }
 .history-row .hacts {
   display: flex;
-  gap: 2px;
-  margin-top: 2px;
+  align-self: center;
 }
 .history-row .hedit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
   background: none;
   border: none;
   color: var(--muted);
-  font-size: 0.9rem;
   cursor: pointer;
   opacity: 0;
-  padding: 2px 4px;
   transition: opacity 0.15s, color 0.15s;
+}
+.history-row .hedit svg {
+  display: block;
 }
 @media (hover: hover) {
   .history-row:hover .hedit {
