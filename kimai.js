@@ -8,6 +8,12 @@ const TIMEZONE = process.env.KIMAI_TIMEZONE || 'Europe/Bratislava';
 export const enabled = () => Boolean(BASE && TOKEN);
 
 async function kfetch(path, opts = {}) {
+  if (!enabled()) {
+    throw new Error(
+      'Kimai nie je nakonfigurované — nastav env premenné KIMAI_URL a KIMAI_API_TOKEN ' +
+        '(Node verzia nečíta config.php; ten patrí PHP verzii).'
+    );
+  }
   const res = await fetch(BASE + path, {
     ...opts,
     headers: {

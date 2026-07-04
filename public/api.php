@@ -159,6 +159,9 @@ function kimai_enabled(): bool
 
 function kimai_fetch(string $path, string $method = 'GET', ?array $payload = null)
 {
+    if (!kimai_enabled()) {
+        throw new RuntimeException('Kimai nie je nakonfigurované — vyplň KIMAI_URL a KIMAI_API_TOKEN v config.php.');
+    }
     $base = rtrim((string) cfg('KIMAI_URL'), '/');
     $ch = curl_init($base . $path);
     $headers = [

@@ -43,6 +43,21 @@ Vývojový režim s automatickým reštartom:
 npm run dev
 ```
 
+Node verzia sa konfiguruje **env premennými** (nie súborom config.php):
+
+```bash
+APP_PASSWORD=heslo KIMAI_URL=https://kimai.firma.sk KIMAI_API_TOKEN=token npm start
+```
+
+### Lokálne spustenie PHP verzie
+
+PHP verzia (tá pre zdieľaný hosting) sa dá spustiť lokálne bez Apache —
+konfiguruje sa súborom `public/config.php` (viď `config.example.php`):
+
+```bash
+php -S localhost:8090 -t public router.php
+```
+
 ## Konfigurácia
 
 | Premenná             | Popis                                                                    |
