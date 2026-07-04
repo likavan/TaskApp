@@ -457,30 +457,25 @@ input::placeholder {
   gap: 2px;
   margin-top: 2px;
 }
-.history-row .hdel,
 .history-row .hedit {
   background: none;
   border: none;
   color: var(--muted);
+  font-size: 0.9rem;
   cursor: pointer;
   opacity: 0;
   padding: 2px 4px;
   transition: opacity 0.15s, color 0.15s;
 }
 @media (hover: hover) {
-  .history-row:hover .hdel,
   .history-row:hover .hedit {
     opacity: 1;
-  }
-  .history-row .hdel:hover {
-    color: var(--danger);
   }
   .history-row .hedit:hover {
     color: var(--text);
   }
 }
 @media (hover: none) {
-  .history-row .hdel,
   .history-row .hedit {
     opacity: 0.55;
   }
@@ -525,6 +520,16 @@ input::placeholder {
 .e-sep {
   color: var(--muted);
   font-size: 0.85rem;
+}
+.e-del {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--danger);
+  font-size: 0.82rem;
+  padding: 0 0 2px 2px;
+  cursor: pointer;
 }
 .e-ok,
 .e-cancel {

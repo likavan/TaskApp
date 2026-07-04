@@ -265,15 +265,9 @@ async function loadHistory() {
         ${e.ended_at ? `<div class="hdur">${fmtShort(dur)}</div>` : `<div class="running-badge">beží</div>`}
       </div>
       <div class="hacts">
-        <button class="hedit" title="Upraviť poznámku">✎</button>
-        <button class="hdel" title="Zmazať">✕</button>
+        <button class="hedit" title="Upraviť">⚙</button>
       </div>`;
     row.querySelector('.hedit').addEventListener('click', () => editEntry(row, e));
-    row.querySelector('.hdel').addEventListener('click', async () => {
-      await api.del(`/api/entries/${e.id}`);
-      if (running && running.id === e.id) running = null;
-      await refreshAll();
-    });
     el.appendChild(row);
   }
 }
@@ -346,9 +340,23 @@ function editEntry(row, entry) {
     times.append(badge);
   }
   times.append(ok, cancel);
-  form.append(note, times);
+
+  const del = document.createElement('button');
+  del.type = 'button';
+  del.className = 'e-del';
+  del.textContent = 'Zmazať záznam';
+
+  form.append(note, times, del);
   row.appendChild(form);
   note.focus();
+
+  del.addEventListener('click', async () => {
+    if (!confirm('Zmazať tento záznam?')) return;
+    await api.del(`/api/entries/${entry.id}`);
+    if (running && running.id === entry.id) running = null;
+    toast('Zmazané');
+    await refreshAll();
+  });
 
   const close = () => {
     form.remove();
